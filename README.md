@@ -144,6 +144,16 @@ server. See [`PRIVACY.md`](./PRIVACY.md) for exactly what data each check
 touches and where it goes (mainly: `npm audit` talks to the npm registry,
 same as running it yourself).
 
+## Author
+
+**Anurag Kumar Bharti**  
+Software Engineer
+
+- **Portfolio:** [https://ace-akb.vercel.app](https://ace-akb.vercel.app)
+- **GitHub:** [https://github.com/i-akb25](https://github.com/i-akb25)
+- **LinkedIn:** [https://linkedin.com/in/anuragkumarbharti](https://linkedin.com/in/anuragkumarbharti)
+- **Email:** anuragbhartiee25@gmail.com
+
 ## License
 
 MIT — see [`LICENSE`](./LICENSE).
