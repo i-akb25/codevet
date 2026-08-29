@@ -1,12 +1,12 @@
 {
-  "name": "codevet",
+  "name": "@i-akb25/codevet",
   "version": "1.0.0",
   "description": "Vet your code before it ships \u2014 a free, open-source security co-pilot that checks for leaked secrets, vulnerable dependencies, missing security middleware, and personal data flow, with real working fixes shown inline.",
   "scripts": {
     "build": "tsc",
     "postinstall": "node scripts/postinstall.mjs",
     "dev": "tsx src/index.ts",
-    "test": "npm run build && node --import tsx --test tests/*.test.ts",
+    "test": "npm run build && node scripts/runTests.mjs",
     "generate-templates": "node scripts/generateTemplates.mjs"
   },
   "keywords": [
@@ -20,7 +20,7 @@
     "cli",
     "devsecops"
   ],
-  "author": "ANURAG ARYAN",
+  "author": "",
   "license": "MIT",
   "dependencies": {
     "chalk": "^6.0.0",

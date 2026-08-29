@@ -36,9 +36,9 @@ Checking personal data flow (via bearer)...
 ## Install
 
 ```bash
-npm install -g codevet          # global — run `codevet` from any project
+npm install -g @i-akb25/codevet          # global — run `codevet` from any project
 # or
-npm install --save-dev codevet  # per-project — run via `npx codevet`
+npm install --save-dev @i-akb25/codevet  # per-project — run via `npx codevet`
 ```
 
 ## Use
