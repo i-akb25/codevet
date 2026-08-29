@@ -1,0 +1,6 @@
+node_modules/
+dist/
+bin/vendor/
+*.tgz
+.codevet-gitleaks-report.json
+*.log

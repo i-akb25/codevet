@@ -1,0 +1,91 @@
+title = "codevet-gitleaks-config"
+
+[extend]
+useDefault = true
+
+# --no-git mode (used so CodeVet works even outside a git repo, and catches
+# uncommitted files) scans the raw filesystem and does NOT respect
+# .gitignore. Without this, build caches, dependency folders, and other
+# directories that can never actually leak via git get scanned anyway,
+# producing pure noise. Confirmed in real testing: a Next.js .next/ build
+# cache produced 6 false "Generic API Key" findings before this was added.
+[allowlist]
+paths = [
+  '''(^|[/\\])node_modules([/\\]|$)''',
+  '''(^|[/\\])\.next([/\\]|$)''',
+  '''(^|[/\\])\.nuxt([/\\]|$)''',
+  '''(^|[/\\])dist([/\\]|$)''',
+  '''(^|[/\\])build([/\\]|$)''',
+  '''(^|[/\\])out([/\\]|$)''',
+  '''(^|[/\\])coverage([/\\]|$)''',
+  '''(^|[/\\])\.turbo([/\\]|$)''',
+  '''(^|[/\\])\.git([/\\]|$)''',
+  '''(^|[/\\])target([/\\]|$)''',
+  '''(^|[/\\])vendor([/\\]|$)''',
+  '''(^|[/\\])__pycache__([/\\]|$)''',
+  '''(^|[/\\])\.venv([/\\]|$)''',
+  '''(^|[/\\])venv([/\\]|$)''',
+  '''(^|[/\\])\.cache([/\\]|$)''',
+  # Confirmed as a real false-positive source in testing: a single
+  # Angular project's .angular/cache/ produced ~90 "Generic API Key"
+  # false positives from webpack .pack binary cache blobs — their
+  # compressed/hashed content trips generic entropy-based secret
+  # detection, but they're compiler cache artifacts, never application
+  # source. Angular commits nothing sensitive here by design.
+  '''(^|[/\\])\.angular([/\\]|$)''',
+  # Yarn 2+ (Berry) commits vendored CLI binaries under .yarn/releases/
+  # and .yarn/cache/ by design (the "zero-installs" pattern) — these are
+  # third-party tool code, not application secrets, and the same
+  # generic-entropy false-positive risk applies as with webpack packs.
+  '''(^|[/\\])\.yarn([/\\]|$)''',
+  # Webpack/build-tool cache ".pack" files are binary blobs regardless of
+  # which directory they end up in — matched by extension as a safety net
+  # beyond the .angular directory rule above, since other bundlers may use
+  # differently-named cache folders we haven't seen a false positive from
+  # yet. Real secrets essentially never live in a compiled binary cache
+  # file, so this trade-off favors eliminating noise.
+  '''\.pack$''',
+]
+
+[[rules]]
+id = "generic-connection-string-credentials"
+description = "Hardcoded username/password embedded in a database or service connection string"
+regex = '''(?i)(postgres(ql)?|mysql|mongodb(\+srv)?|redis|amqp|rabbitmq):\/\/[^:\/\s"']+:[^@\/\s"']+@[^\/\s"']+'''
+tags = ["credentials", "connection-string"]
+
+# Real leaked credentials live in application source/config files, not prose
+# documentation — confirmed in real testing: 15 false positives came from
+# *.md reference/skill docs containing illustrative example connection
+# strings, not actual secrets. Markdown docs are excluded from this rule
+# specifically (not globally) since a real secret pasted into a README is
+# still worth catching by the default rules.
+[[rules.allowlists]]
+paths = [
+  '''\.md$''',
+  '''(^|[/\\])references([/\\]|$)''',
+  '''(^|[/\\])docs?([/\\]|$)''',
+  '''(^|[/\\])examples?([/\\]|$)''',
+]
+regexes = [
+  '''://(user|username|admin|test|example|localhost|127\.0\.0\.1):(password|pass|test|example|changeme)@''',
+]
+
+# Supabase's service role key bypasses Row Level Security entirely — it
+# must never reach client code. Two real, statically-detectable patterns:
+# (1) the key itself assigned to a SERVICE_ROLE-named variable, and
+# (2) the naming mistake alone (NEXT_PUBLIC_/VITE_ prefix on a
+# SERVICE_ROLE var), which guarantees the bundler ships it to the browser
+# even before any real value is filled in.
+[[rules]]
+id = "supabase-service-role-key-assignment"
+description = "Supabase service_role key assigned in code — this key bypasses Row Level Security and must never reach client-side code"
+regex = '''(?i)(SUPABASE[_-]?SERVICE[_-]?ROLE[_-]?KEY|service_role_key)\s*[:=]\s*['"]eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+['"]'''
+tags = ["credentials", "supabase"]
+
+[[rules]]
+id = "supabase-service-role-key-exposed-to-client"
+description = "A SUPABASE service_role env var is prefixed for client-side exposure (NEXT_PUBLIC_/VITE_/REACT_APP_) — this ships the key straight into the browser bundle regardless of its actual value"
+regex = '''(?i)(NEXT_PUBLIC_|VITE_|REACT_APP_)[A-Z_]*SERVICE[_-]?ROLE[_-]?KEY'''
+tags = ["credentials", "supabase", "misconfiguration"]
+
+

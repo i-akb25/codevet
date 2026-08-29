@@ -1,0 +1,40 @@
+name: "CodeVet Security Scan"
+description: "Scans your repo with CodeVet and comments findings directly on the PR"
+author: "CodeVet"
+
+inputs:
+  fail-on-high-risk:
+    description: "Fail the check if any secret or high/critical dependency finding is present"
+    required: false
+    default: "true"
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "20"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run CodeVet scan
+      shell: bash
+      run: |
+        npx --yes codevet scan . --json codevet-report.json ${{ inputs.fail-on-high-risk == 'true' && '--fail-on-high-risk' || '' }}
+      continue-on-error: true
+      id: scan
+
+    - name: Post results as a PR comment
+      if: github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        CODEVET_REPORT_PATH: codevet-report.json
+      run: node "${{ github.action_path }}/scripts/postPrComment.mjs"
+
+    - name: Fail the check if the scan failed
+      if: steps.scan.outcome == 'failure' && inputs.fail-on-high-risk == 'true'
+      shell: bash
+      run: exit 1

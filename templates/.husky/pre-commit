@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# .husky/pre-commit — requires: npm install -D husky && npx husky init
+npx gitleaks protect --staged --no-banner || {
+  echo "Blocked: gitleaks found a potential secret in your staged changes.";
+  exit 1;
+}

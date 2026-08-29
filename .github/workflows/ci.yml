@@ -1,0 +1,20 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  build-test-audit:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+      - run: npm audit
+      - name: Dogfood — scan CodeVet's own codebase
+        run: node dist/index.js scan .

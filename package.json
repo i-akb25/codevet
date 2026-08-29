@@ -1,0 +1,53 @@
+{
+  "name": "codevet",
+  "version": "1.0.0",
+  "description": "Vet your code before it ships \u2014 a free, open-source security co-pilot that checks for leaked secrets, vulnerable dependencies, missing security middleware, and personal data flow, with real working fixes shown inline.",
+  "scripts": {
+    "build": "tsc",
+    "postinstall": "node scripts/postinstall.mjs",
+    "dev": "tsx src/index.ts",
+    "test": "npm run build && node --import tsx --test tests/*.test.ts",
+    "generate-templates": "node scripts/generateTemplates.mjs"
+  },
+  "keywords": [
+    "security",
+    "security-scanner",
+    "secrets",
+    "vulnerability-scanner",
+    "sast",
+    "gitleaks",
+    "dependency-audit",
+    "cli",
+    "devsecops"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^6.0.0",
+    "commander": "^15.0.0",
+    "execa": "^10.0.1",
+    "fast-glob": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2"
+  },
+  "type": "module",
+  "bin": {
+    "codevet": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    ".gitleaks.toml",
+    "scripts"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/i-akb25/codevet.git"
+  },
+  "homepage": "https://github.com/i-akb25/codevet#readme",
+  "bugs": {
+    "url": "https://github.com/i-akb25/codevet/issues"
+  }
+}
