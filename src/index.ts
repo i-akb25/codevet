@@ -5,7 +5,7 @@ import { resolve, join } from "node:path";
 import { existsSync } from "node:fs";
 import { detectStack } from "./detectors/detectStack.js";
 import { runGitleaksScan, GitleaksBinaryMissingError } from "./scanners/gitleaksScanner.js";
-import { runNpmAuditScan, NpmAuditScanFailedError } from "./scanners/npmAuditScanner.js";
+import { runNpmAuditScan, NpmAuditScanFailedError, WrongPackageManagerError } from "./scanners/npmAuditScanner.js";
 import { runHygieneScan } from "./scanners/hygieneScanner.js";
 import { runBearerScan, BearerBinaryMissingError, BearerScanFailedError } from "./scanners/bearerScanner.js";
 import { runPipAuditScan, PipAuditNotInstalledError, PipAuditScanFailedError } from "./scanners/pipAuditScanner.js";
@@ -112,6 +112,12 @@ program
           if (err instanceof NpmAuditScanFailedError) {
             dependenciesUnavailableReason = err.message;
             dependenciesFailed = true;
+          } else if (err instanceof WrongPackageManagerError) {
+            // A deliberate, understood decision not to run — not an
+            // unexpected failure — so this stays a calm skip, not a
+            // red warning. Confirmed the underlying npm crash is real
+            // by directly reproducing it against a pnpm-managed project.
+            dependenciesUnavailableReason = err.message;
           } else {
             throw err;
           }

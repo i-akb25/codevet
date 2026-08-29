@@ -62,7 +62,7 @@ Full command reference: [`docs/HELP.md`](./docs/HELP.md).
 | Check | Tool | Severity model |
 |---|---|---|
 | Leaked secrets — API keys, credentials, connection strings, Supabase service-role-key exposure | `gitleaks` (extended ruleset) | Every finding is real and confirmed |
-| Dependency vulnerabilities (Node) | `npm audit` | CRITICAL/HIGH/MODERATE/LOW from the advisory database |
+| Dependency vulnerabilities (Node) | `npm audit` | CRITICAL/HIGH/MODERATE/LOW from the advisory database. Skipped (not failed) on pnpm-managed projects — a confirmed bug in npm itself, run `pnpm audit` directly for those |
 | Dependency vulnerabilities (Python) | `pip-audit` | Unranked — PyPA's database has no severity field; prioritize by whether a fix exists |
 | Missing security middleware — no helmet, no rate limiting, wide-open CORS, error responses leaking internals, missing Supabase Row Level Security | CodeVet's own heuristic scanner | CRITICAL/HIGH/MODERATE, each with a `Verify:` note on how the check could be wrong |
 | Personal data flow — logging or transmitting PII, secrets, etc. | `bearer` | CRITICAL/HIGH/MODERATE/LOW. **No native Windows build** — unavailable there, everything else still works |

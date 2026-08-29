@@ -111,7 +111,13 @@ export function printReport(report: ScanReport): void {
   if (report.dependenciesScanFailed) {
     console.log(chalk.red(`⚠ Dependency scan FAILED — this is not a clean result: ${report.dependenciesUnavailableReason}`));
   } else if (report.dependenciesScanSkipped) {
-    console.log(chalk.dim("○ Dependency scan skipped."));
+    console.log(
+      chalk.dim(
+        report.dependenciesUnavailableReason
+          ? `○ Dependency scan skipped — ${report.dependenciesUnavailableReason}`
+          : "○ Dependency scan skipped.",
+      ),
+    );
   } else if (report.dependencies.length === 0) {
     console.log(chalk.green("✔ No known-vulnerable dependencies found."));
   } else {

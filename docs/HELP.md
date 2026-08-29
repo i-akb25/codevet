@@ -135,6 +135,15 @@ normally, but this specific check is unavailable — you'll see a clear
 message explaining why rather than a silent gap. WSL is a workaround if
 you need this check on Windows.
 
+## A known limitation: pnpm-managed projects
+
+Dependency scanning is skipped (not failed) on projects using pnpm
+(detected via `pnpm-lock.yaml` or `node_modules/.pnpm`). This isn't a
+CodeVet limitation — it's a real, confirmed bug in npm itself: npm's own
+dependency resolver crashes with an internal error when it encounters
+pnpm's symlink structure in `node_modules`. Run `pnpm audit` directly for
+these projects; secrets, hygiene, and data-flow checks are unaffected.
+
 ## Machine-readable output (for CI/tooling)
 
 ```

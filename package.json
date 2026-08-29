@@ -20,12 +20,12 @@
     "cli",
     "devsecops"
   ],
-  "author": "",
+  "author": "ANURAG ARYAN",
   "license": "MIT",
   "dependencies": {
     "chalk": "^6.0.0",
     "commander": "^15.0.0",
-    "execa": "^10.0.1",
+    "execa": "^9.6.1",
     "fast-glob": "^3.3.3"
   },
   "devDependencies": {
@@ -49,5 +49,8 @@
   "homepage": "https://github.com/i-akb25/codevet#readme",
   "bugs": {
     "url": "https://github.com/i-akb25/codevet/issues"
+  },
+  "engines": {
+    "node": "^18.19.0 || >=20.5.0"
   }
 }

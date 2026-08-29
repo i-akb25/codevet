@@ -22,6 +22,44 @@ export class NpmAuditScanFailedError extends Error {
   }
 }
 
+export class WrongPackageManagerError extends Error {
+  constructor(manager: string) {
+    super(
+      `this project uses ${manager}, not npm — npm audit cannot reliably scan a ${manager}-managed dependency tree. Confirmed in testing: npm's own dependency resolver (arborist) crashes with an internal error ("Cannot read properties of null") when node_modules contains ${manager}'s symlink structure, which is a real bug in npm itself, not something CodeVet can work around. Run '${manager} audit' directly for this project.`,
+    );
+    this.name = "WrongPackageManagerError";
+  }
+}
+
+/**
+ * Detects a package manager npm's own dependency resolver cannot reliably
+ * handle. Confirmed by directly reproducing the failure: a pnpm-managed
+ * node_modules/.pnpm virtual store crashes npm's arborist mid-resolution
+ * with an unhandled internal TypeError, not a normal, catchable npm error.
+ * Rather than let that crash surface as a scary internal stack trace, we
+ * detect the situation up front and skip cleanly with a clear reason.
+ */
+function detectIncompatiblePackageManager(projectRoot: string): string | null {
+  if (existsSync(join(projectRoot, "pnpm-lock.yaml")) || existsSync(join(projectRoot, "node_modules", ".pnpm"))) {
+    return "pnpm";
+  }
+  // Same underlying npm/arborist bug class (npm/cli#9459 — Arborist
+  // crashes with "Cannot read properties of null (reading 'matches')" on
+  // a Link with a null target), triggered by Yarn's node_modules
+  // structure (classic Yarn's flat symlink layout, or Yarn Berry/PnP's
+  // .pnp.cjs) instead of pnpm's virtual store. Detected via yarn.lock or
+  // the .yarnrc.yml Yarn Berry uses, rather than trying to reproduce the
+  // crash signature itself.
+  if (
+    existsSync(join(projectRoot, "yarn.lock")) ||
+    existsSync(join(projectRoot, ".yarnrc.yml")) ||
+    existsSync(join(projectRoot, ".pnp.cjs"))
+  ) {
+    return "yarn";
+  }
+  return null;
+}
+
 interface NpmAuditVulnerability {
   name: string;
   severity: "critical" | "high" | "moderate" | "low";
@@ -61,6 +99,11 @@ export async function runNpmAuditScan(
     return [];
   }
 
+  const incompatibleManager = detectIncompatiblePackageManager(projectRoot);
+  if (incompatibleManager) {
+    throw new WrongPackageManagerError(incompatibleManager);
+  }
+
   const lockfilePath = join(projectRoot, "package-lock.json");
   if (!existsSync(lockfilePath)) {
     const lockResult = await execa(
@@ -70,9 +113,14 @@ export async function runNpmAuditScan(
     );
     // If lockfile generation itself failed, npm audit below will fail too
     // (ENOLOCK) — no point running it, and the error is clearer here.
+    // Show the FULL stderr, not just the first line — a truncated error
+    // message made a real failure (a Turborepo monorepo project) much
+    // harder to diagnose than necessary, since npm's actual diagnostic
+    // detail (often including a debug-log path) was being cut off.
     if (lockResult.exitCode !== 0 && !existsSync(lockfilePath)) {
+      const fullError = lockResult.stderr.trim() || lockResult.stdout.trim() || "unknown error";
       throw new NpmAuditScanFailedError(
-        `could not generate a package-lock.json (${lockResult.stderr.split("\n")[0] || "unknown error"})`,
+        `could not generate a package-lock.json.\n${fullError}`,
       );
     }
   }
