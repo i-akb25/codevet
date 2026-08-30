@@ -81,7 +81,7 @@ Anything less is incomplete, regardless of how small the change looks.
 ## Setting up locally
 
 ```
-git clone https://github.com/<org>/codevet.git
+git clone https://github.com/i-akb25/codevet.git
 cd codevet
 npm install
 npm run build

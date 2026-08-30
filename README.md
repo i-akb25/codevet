@@ -36,9 +36,9 @@ Checking personal data flow (via bearer)...
 ## Install
 
 ```bash
-npm install -g @i-akb25/codevet          # global — run `codevet` from any project
+npm install -g @i.akb-viora/codevet          # global — run `codevet` from any project
 # or
-npm install --save-dev @i-akb25/codevet  # per-project — run via `npx codevet`
+npm install --save-dev @i.akb-viora/codevet  # per-project — run via `npx codevet`
 ```
 
 ## Use
@@ -143,6 +143,16 @@ CodeVet runs entirely locally — no account, no telemetry, no CodeVet
 server. See [`PRIVACY.md`](./PRIVACY.md) for exactly what data each check
 touches and where it goes (mainly: `npm audit` talks to the npm registry,
 same as running it yourself).
+
+## Author
+
+**Anurag Kumar Bharti**  
+Software Engineer
+
+- **Portfolio:** [https://ace-akb.vercel.app](https://ace-akb.vercel.app)
+- **GitHub:** [https://github.com/i-akb25](https://github.com/i-akb25)
+- **LinkedIn:** [https://linkedin.com/in/anuragkumarbharti](https://linkedin.com/in/anuragkumarbharti)
+- **Email:** anuragbhartiee25@gmail.com
 
 ## License
 

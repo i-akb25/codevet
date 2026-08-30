@@ -1,5 +1,5 @@
 {
-  "name": "@i-akb25/codevet",
+  "name": "@i.akb-viora/codevet",
   "version": "1.0.0",
   "description": "Vet your code before it ships \u2014 a free, open-source security co-pilot that checks for leaked secrets, vulnerable dependencies, missing security middleware, and personal data flow, with real working fixes shown inline.",
   "scripts": {
@@ -20,7 +20,7 @@
     "cli",
     "devsecops"
   ],
-  "author": "",
+  "author": "Anurag Aryan",
   "license": "MIT",
   "dependencies": {
     "chalk": "^6.0.0",
