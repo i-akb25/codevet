@@ -9,7 +9,7 @@ read this before poking around.
 ## The short version — what you actually need, by role
 
 **Just want to use CodeVet?** You need none of this repo directly —
-`npm install -g @i.akb-viora/codevet`. Read [`README.md`](./README.md) and
+`npm install -g codevet-cli`. Read [`README.md`](./README.md) and
 [`docs/HELP.md`](./docs/HELP.md).
 
 **Want to contribute code?** You need `src/`, `tests/`, and

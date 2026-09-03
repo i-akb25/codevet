@@ -1,17 +1,7 @@
 import { execa } from "execa";
 import { readFile, unlink } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PACKAGE_ROOT = join(__dirname, "..", "..");
-const BEARER_BIN = join(
-  PACKAGE_ROOT,
-  "bin",
-  "vendor",
-  process.platform === "win32" ? "bearer.exe" : "bearer",
-);
+import { join } from "node:path";
+import { ensureBinary } from "./ensureBinary.js";
 
 export interface DataFlowFinding {
   ruleId: string;
@@ -28,7 +18,7 @@ export class BearerBinaryMissingError extends Error {
     super(
       isWindows
         ? "bearer has no native Windows build, so the personal-data-flow check isn't available on this machine — secrets, dependencies, and hygiene checks are unaffected. WSL is a workaround if you need this specific check."
-        : `bearer binary not found at ${BEARER_BIN}. This usually means the postinstall step didn't run — try 'npm install' again inside the codevet package.`,
+        : "bearer binary not found and could not be downloaded automatically. Check your network connection and try again.",
     );
     this.name = "BearerBinaryMissingError";
   }
@@ -69,7 +59,11 @@ interface BearerRawFinding {
 type BearerRawReport = Record<string, BearerRawFinding[]>; // keyed by severity
 
 export async function runBearerScan(projectRoot: string): Promise<DataFlowFinding[]> {
-  if (!existsSync(BEARER_BIN)) {
+  // ensureBinary returns null on Windows (no native build exists) or if
+  // the download genuinely fails — both correctly surface as
+  // BearerBinaryMissingError below, same as before.
+  const binaryPath = await ensureBinary("bearer");
+  if (!binaryPath) {
     throw new BearerBinaryMissingError();
   }
 
@@ -84,7 +78,7 @@ export async function runBearerScan(projectRoot: string): Promise<DataFlowFindin
     // prevent. We handle bearer's real non-zero exit code ourselves below
     // instead of suppressing it.
     const result = await execa(
-      BEARER_BIN,
+      binaryPath,
       [
         "scan",
         projectRoot,

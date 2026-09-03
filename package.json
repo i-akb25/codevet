@@ -1,6 +1,6 @@
 {
-  "name": "@i.akb-viora/codevet",
-  "version": "1.0.0",
+  "name": "codevet-cli",
+  "version": "1.1.0",
   "description": "Vet your code before it ships \u2014 a free, open-source security co-pilot that checks for leaked secrets, vulnerable dependencies, missing security middleware, and personal data flow, with real working fixes shown inline.",
   "scripts": {
     "build": "tsc",
@@ -52,5 +52,6 @@
   },
   "engines": {
     "node": "^18.19.0 || >=20.5.0"
-  }
+  },
+  "main": "dist/index.js"
 }

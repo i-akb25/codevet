@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import chalk from "chalk";
-import { resolve, join } from "node:path";
+import { resolve, join, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { detectStack } from "./detectors/detectStack.js";
 import { runGitleaksScan, GitleaksBinaryMissingError } from "./scanners/gitleaksScanner.js";
@@ -17,10 +17,21 @@ import { runFix, removeDependency } from "./scanners/npmFixActions.js";
 
 const program = new Command();
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// Read the real version from package.json rather than hardcoding it —
+// confirmed as a real bug: a hardcoded "0.0.1" had silently drifted out
+// of sync with the actual published version.
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, "..", "package.json"), "utf-8"),
+) as { version: string };
+
 program
   .name("codevet")
   .description("Vet your code before it ships — free, open-source security scanning")
-  .version("0.0.1");
+  .version(packageJson.version);
 
 program
   .command("scan")

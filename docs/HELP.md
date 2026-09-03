@@ -3,9 +3,9 @@
 ## Installing
 
 ```
-npm install -g @i.akb-viora/codevet          # global install, gives you the `codevet` command anywhere
+npm install -g codevet-cli          # global install, gives you the `codevet` command anywhere
 # or
-npm install --save-dev @i.akb-viora/codevet  # install into a specific project, run via `npx codevet`
+npm install --save-dev codevet-cli  # install into a specific project, run via `npx codevet`
 ```
 
 ## Scanning

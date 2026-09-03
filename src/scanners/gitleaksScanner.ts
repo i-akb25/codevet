@@ -3,6 +3,7 @@ import { readFile, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureBinary } from "./ensureBinary.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // This file lives at dist/scanners/gitleaksScanner.js at runtime, whether
@@ -11,12 +12,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // to the package root is identical either way, so this resolves correctly
 // in both installation modes.
 const PACKAGE_ROOT = join(__dirname, "..", "..");
-const GITLEAKS_BIN = join(
-  PACKAGE_ROOT,
-  "bin",
-  "vendor",
-  process.platform === "win32" ? "gitleaks.exe" : "gitleaks",
-);
 const RULES_CONFIG = join(PACKAGE_ROOT, ".gitleaks.toml");
 
 export interface SecretFinding {
@@ -29,7 +24,7 @@ export interface SecretFinding {
 export class GitleaksBinaryMissingError extends Error {
   constructor() {
     super(
-      `gitleaks binary not found at ${GITLEAKS_BIN}. This usually means the postinstall step didn't run — try 'npm install' again inside the codevet package.`,
+      "gitleaks binary not found and could not be downloaded automatically. Check your network connection and try again, or install gitleaks manually and place it at bin/vendor/gitleaks.",
     );
     this.name = "GitleaksBinaryMissingError";
   }
@@ -38,7 +33,12 @@ export class GitleaksBinaryMissingError extends Error {
 export async function runGitleaksScan(
   projectRoot: string,
 ): Promise<SecretFinding[]> {
-  if (!existsSync(GITLEAKS_BIN)) {
+  // ensureBinary self-heals: downloads the binary right now if it's
+  // missing (e.g. npm blocked postinstall from ever running it), instead
+  // of just failing with a message that "try npm install again" can
+  // never actually fix. Confirmed as a real, live issue via a bug report.
+  const binaryPath = await ensureBinary("gitleaks");
+  if (!binaryPath) {
     throw new GitleaksBinaryMissingError();
   }
 
@@ -46,7 +46,7 @@ export async function runGitleaksScan(
 
   try {
     await execa(
-      GITLEAKS_BIN,
+      binaryPath,
       [
         "detect",
         "--source",
