@@ -113,18 +113,6 @@ security audit on anything handling real user data or payments at scale.
 A clean scan means the checks CodeVet currently runs found nothing — not a
 certification.
 
-## About the Socket.dev supply-chain score
-
-CodeVet's automated Socket.dev score flags Install scripts, Network access,
-Shell access, and Filesystem access as "supply chain risk." These are all
-expected and necessary — CodeVet downloads vetted, official scanner
-binaries (gitleaks, bearer) at install time or on first use, invokes them
-via the shell to run a scan, and reads your project's files to scan them.
-That's the whole job. Automated scoring can't distinguish that from
-something malicious without deeper context — see
-[`PRIVACY.md`](./PRIVACY.md) for exactly what each of these does and
-where any data goes.
-
 ## Why this exists
 
 Every existing free security tool — Semgrep, Trivy, GitGuardian — is built
