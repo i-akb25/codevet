@@ -151,6 +151,21 @@ codevet scan --json report.json         # also writes a JSON report alongside th
 codevet scan --fail-on-high-risk         # exits with a non-zero code if anything serious is found
 ```
 
+## Installing into a pnpm or Yarn workspace
+
+Don't run `npm install codevet-cli` (or `npm i codevet-cli`) inside a pnpm-
+or Yarn-managed monorepo — npm's own dependency resolver can crash trying
+to interpret pnpm's symlinked `node_modules` structure (a real, confirmed
+npm bug, not something CodeVet causes). Use `npx` instead, which doesn't
+touch the workspace's dependency tree at all:
+
+```
+npx codevet-cli scan .
+```
+
+If you want CodeVet available as an actual dev dependency in a pnpm
+workspace, use pnpm itself to install it: `pnpm add -D codevet-cli`.
+
 ## Something not working?
 
 Check `TROUBLESHOOTING.md` if it exists in this repo, or open an issue —

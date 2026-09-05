@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
-import { mkdir, chmod, rm, writeFile } from "node:fs/promises";
+import { mkdir, chmod, rm, writeFile, readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createHash } from "node:crypto";
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,12 +16,44 @@ const VENDOR_DIR = join(PACKAGE_ROOT, "bin", "vendor");
 const GITLEAKS_VERSION = "8.30.1";
 const BEARER_VERSION = "2.1.0";
 
+// Pinned SHA-256 checksums, verified by us against each project's own
+// published checksums.txt at the time this version was pinned — NOT
+// fetched dynamically alongside the binary itself. Fetching a checksum
+// from the same GitHub release as the binary it's meant to verify
+// provides no real protection (an attacker who could tamper with one
+// could tamper with both); a hash pinned in our own source, reviewed at
+// a different time, is what actually catches a compromised or corrupted
+// download. Real, verified security concern raised in external review —
+// addressed properly here rather than skipped.
+const CHECKSUMS: Record<string, string> = {
+  "gitleaks_8.30.1_darwin_arm64.tar.gz": "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5",
+  "gitleaks_8.30.1_darwin_x64.tar.gz": "dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709",
+  "gitleaks_8.30.1_linux_arm64.tar.gz": "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080",
+  "gitleaks_8.30.1_linux_x64.tar.gz": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+  "gitleaks_8.30.1_windows_arm64.zip": "b95f5e4f5c425cedca7ee203d9afd29597e692c4924a12ed42f970537c72cc0f",
+  "gitleaks_8.30.1_windows_x64.zip": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+  "bearer_2.1.0_darwin_amd64.tar.gz": "d08f3b74724619e4dc8f4673085ce16df4d881e5e104a85b6104498431e6a777",
+  "bearer_2.1.0_darwin_arm64.tar.gz": "8ffcda3cff9ed7c74a1727e5fbd6caf056d076e61ae30bf65428eafde56e8549",
+  "bearer_2.1.0_linux_amd64.tar.gz": "0bd1129669dbfa2461ba64f2cf99b9cb1fc8c0ca35fb27fdfdf3d3f4146ec7b9",
+  "bearer_2.1.0_linux_arm64.tar.gz": "3bec731fe183881b7999193f5958b80db5e0925a6171083514c160392a2dade4",
+};
+
+export class ChecksumMismatchError extends Error {
+  constructor(assetName: string, expected: string, actual: string) {
+    super(
+      `SECURITY: downloaded file "${assetName}" does not match its pinned checksum. Expected ${expected}, got ${actual}. The download has been deleted and will NOT be executed. This could mean a corrupted download or a compromised release — do not retry without investigating.`,
+    );
+    this.name = "ChecksumMismatchError";
+  }
+}
+
 interface DownloadSpec {
   toolName: string;
   targetBin: string;
   url: string;
   ext: "tar.gz" | "zip";
   binName: string;
+  assetName: string;
 }
 
 function resolveGitleaksSpec(): DownloadSpec | null {
@@ -38,6 +71,7 @@ function resolveGitleaksSpec(): DownloadSpec | null {
     url: `https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${assetName}`,
     ext,
     binName,
+    assetName,
   };
 }
 
@@ -55,6 +89,7 @@ function resolveBearerSpec(): DownloadSpec | null {
     url: `https://github.com/Bearer/bearer/releases/download/v${BEARER_VERSION}/${assetName}`,
     ext: "tar.gz",
     binName: "bearer",
+    assetName,
   };
 }
 
@@ -68,6 +103,27 @@ async function downloadAndExtract(spec: DownloadSpec): Promise<void> {
   }
   const buf = Buffer.from(await res.arrayBuffer());
   await writeFile(archivePath, buf);
+
+  // Verify against the pinned checksum BEFORE extracting or executing
+  // anything. If there's no pinned hash for this exact asset (e.g. a
+  // platform/version combo added later without updating CHECKSUMS), fail
+  // closed rather than silently skip verification — a security tool
+  // should never extract an unverified binary.
+  const expectedHash = CHECKSUMS[spec.assetName];
+  if (!expectedHash) {
+    await rm(archivePath).catch(() => {});
+    throw new Error(
+      `No pinned checksum found for "${spec.assetName}" — refusing to extract an unverified binary. This is a CodeVet bug (a supported platform is missing from its own checksum table), not a download problem.`,
+    );
+  }
+
+  const fileBuffer = await readFile(archivePath);
+  const actualHash = createHash("sha256").update(fileBuffer).digest("hex");
+
+  if (actualHash !== expectedHash) {
+    await rm(archivePath).catch(() => {});
+    throw new ChecksumMismatchError(spec.assetName, expectedHash, actualHash);
+  }
 
   if (spec.ext === "tar.gz") {
     await execFileAsync("tar", ["-xzf", archivePath, "-C", VENDOR_DIR, spec.binName]);
