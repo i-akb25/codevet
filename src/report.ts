@@ -29,6 +29,7 @@ export interface ScanReport {
   secrets: SecretFinding[];
   dependencies: DependencyFinding[];
   hygiene: HygieneFinding[];
+  hygieneScanSkipped?: boolean;
   dataFlow: DataFlowFinding[];
   pythonDependencies: PythonDependencyFinding[];
   pythonDependenciesApplicable?: boolean;
@@ -54,6 +55,49 @@ export function hasFindings(report: ScanReport): boolean {
     Boolean(report.dependenciesScanFailed) ||
     Boolean(report.pythonDependenciesFailed)
   );
+}
+
+export type Verdict = "PASS" | "PASS WITH WARNINGS" | "BLOCKED" | "INCOMPLETE";
+
+/**
+ * The honest, at-a-glance summary line. Deliberately distinct from
+ * hasHighRiskFindings (used for --fail-on-high-risk CI gating, where a
+ * scan failure correctly counts as high-risk so CI doesn't pass
+ * silently) — here, a failure with zero actual findings should read as
+ * INCOMPLETE, not BLOCKED. BLOCKED means "a real problem was found."
+ * INCOMPLETE means "some checks didn't run or didn't finish," and can
+ * be true at the same time as BLOCKED if other checks did find something.
+ */
+export function computeVerdict(report: ScanReport): Verdict {
+  const hasRealHighRiskFinding =
+    report.secrets.length > 0 ||
+    report.dependencies.some((d) => d.severity === "critical" || d.severity === "high") ||
+    report.dataFlow.some((d) => d.severity === "critical" || d.severity === "high") ||
+    report.hygiene.some((h) => h.severity === "critical" || h.severity === "high");
+
+  if (hasRealHighRiskFinding) {
+    return "BLOCKED";
+  }
+
+  const anyIncomplete =
+    Boolean(report.secretsScanSkipped) ||
+    Boolean(report.dependenciesScanSkipped) ||
+    Boolean(report.dependenciesScanFailed) ||
+    Boolean(report.hygieneScanSkipped) ||
+    Boolean(report.dataFlowScanSkipped) ||
+    Boolean(report.dataFlowScanFailed) ||
+    Boolean(report.pythonDependenciesFailed) ||
+    (Boolean(report.pythonDependenciesApplicable) && Boolean(report.pythonDependenciesUnavailableReason));
+
+  if (anyIncomplete) {
+    return "INCOMPLETE";
+  }
+
+  if (hasFindings(report)) {
+    return "PASS WITH WARNINGS";
+  }
+
+  return "PASS";
 }
 
 export function hasHighRiskFindings(report: ScanReport): boolean {
@@ -214,4 +258,44 @@ export function printReport(report: ScanReport): void {
       console.log(chalk.dim(`  ${d.description}\n`));
     }
   }
+
+  printCoverageAndVerdict(report);
+}
+
+function checkStatus(skipped: boolean | undefined, failed: boolean | undefined): string {
+  if (failed) return chalk.red("failed");
+  if (skipped) return chalk.dim("skipped");
+  return chalk.green("completed");
+}
+
+/**
+ * The headline honesty feature: an explicit PASS / PASS WITH WARNINGS /
+ * BLOCKED / INCOMPLETE verdict, plus exactly which checks ran. Never lets
+ * "nothing found" and "didn't actually check" look the same at a glance —
+ * directly addresses external feedback that a scanner should never let a
+ * skipped or failed check read as equivalent to a clean result.
+ */
+function printCoverageAndVerdict(report: ScanReport): void {
+  console.log(chalk.bold("\nCoverage:"));
+  console.log(`  Secrets:       ${checkStatus(report.secretsScanSkipped, false)}`);
+  console.log(`  Dependencies:  ${checkStatus(report.dependenciesScanSkipped, report.dependenciesScanFailed)}`);
+  console.log(`  Hygiene:       ${checkStatus(report.hygieneScanSkipped, false)}`);
+  console.log(`  Data flow:     ${checkStatus(report.dataFlowScanSkipped, report.dataFlowScanFailed)}`);
+  if (report.pythonDependenciesApplicable) {
+    console.log(
+      `  Python deps:   ${checkStatus(Boolean(report.pythonDependenciesUnavailableReason), report.pythonDependenciesFailed)}`,
+    );
+  }
+
+  const verdict = computeVerdict(report);
+  const verdictColor =
+    verdict === "PASS"
+      ? chalk.bgGreen.black.bold
+      : verdict === "PASS WITH WARNINGS"
+        ? chalk.bgYellow.black.bold
+        : verdict === "BLOCKED"
+          ? chalk.bgRed.white.bold
+          : chalk.bgYellow.black.bold; // INCOMPLETE
+
+  console.log(chalk.bold("\nVerdict: ") + verdictColor(` ${verdict} `));
 }

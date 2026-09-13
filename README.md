@@ -11,7 +11,7 @@ how severe it is, why it matters, and — where possible — the exact working
 fix code, not just a description.
 
 ```
-$ npx codevet scan
+$ npx codevet-cli@latest scan
 
 CodeVet — scanning .
 
@@ -31,22 +31,42 @@ Checking for missing security middleware...
 
 Checking personal data flow (via bearer)...
 ✔ No personal-data-flow risks found.
+
+Coverage:
+  Secrets:       completed
+  Dependencies:  completed
+  Hygiene:       completed
+  Data flow:     completed
+
+Verdict: BLOCKED
 ```
 
 ## Install
 
 ```bash
-npm install -g @i.akb-viora/codevet          # global — run `codevet` from any project
+npm install -g codevet-cli          # global — run `codevet` from any project
 # or
-npm install --save-dev @i.akb-viora/codevet  # per-project — run via `npx codevet`
+npm install --save-dev codevet-cli  # per-project — after installing, `npx codevet` resolves to it locally
 ```
+
+**No install, one-off use:** `npx codevet-cli@latest scan` — note the
+`-cli` suffix is required here. A different, unrelated package is
+published under the bare name `codevet`; `npx codevet` without a prior
+local install will fetch the wrong thing.
+
+**pnpm or Yarn workspace?** Don't run `npm install codevet-cli` inside
+one — npm's dependency resolver can crash trying to interpret pnpm's
+symlinked `node_modules`. Use `pnpm dlx codevet-cli scan` (pnpm's
+equivalent of `npx`) or plain `npx codevet-cli@latest scan`, which
+doesn't touch the workspace's dependency tree at all.
 
 ## Use
 
 ```bash
 codevet scan                              # scan the current directory
 codevet scan ./some/folder                # scan a specific local folder
-codevet scan https://github.com/user/repo # review a repo before you trust it
+codevet scan https://github.com/user/repo # review a repo's known findings before deciding to keep it
+codevet scan <url> --keep                 # keep it non-interactively, for CI/scripted use
 codevet fix                               # safely upgrade flagged dependencies
 codevet fix --force                       # allow major-version upgrades
 codevet remove-dependency <name>          # explicitly uninstall a flagged package
@@ -61,7 +81,7 @@ Full command reference: [`docs/HELP.md`](./docs/HELP.md).
 
 | Check | Tool | Severity model |
 |---|---|---|
-| Leaked secrets — API keys, credentials, connection strings, Supabase service-role-key exposure | `gitleaks` (extended ruleset) | Every finding is real and confirmed |
+| Leaked secrets — API keys, credentials, connection strings, Supabase service-role-key exposure | `gitleaks` (extended ruleset) | High-confidence pattern matches — still worth a quick look, since any pattern-based scanner can flag example/fixture/documentation code that only looks like a real secret |
 | Dependency vulnerabilities (Node) | `npm audit` | CRITICAL/HIGH/MODERATE/LOW from the advisory database. Skipped (not failed) on pnpm-managed projects — a confirmed bug in npm itself, run `pnpm audit` directly for those |
 | Dependency vulnerabilities (Python) | `pip-audit` | Unranked — PyPA's database has no severity field; prioritize by whether a fix exists |
 | Missing security middleware — no helmet, no rate limiting, wide-open CORS, error responses leaking internals, missing Supabase Row Level Security | CodeVet's own heuristic scanner | CRITICAL/HIGH/MODERATE, each with a `Verify:` note on how the check could be wrong |
@@ -72,16 +92,24 @@ means fix before launch. **MODERATE** is real but rarely the sole cause of
 an incident. See [`docs/SECURITY-CHECKLIST.md`](./docs/SECURITY-CHECKLIST.md)
 for the full severity-annotated checklist this is built around.
 
-## Reviewing an unfamiliar repo before you trust it
+## Reviewing an unfamiliar repo before deciding to keep it
 
 ```bash
 codevet scan https://github.com/someone/some-repo
 ```
 
-Clones to a temp folder, scans it, and asks before keeping anything if
-issues are found. Decline and nothing is left on disk. Accept and it's
-moved next to where you ran the command, with a provenance marker so
-`codevet clean` can safely identify and remove it later.
+Clones to a temp folder, scans it, and always asks before keeping
+anything — a clean result is not a safety guarantee, only "the checks
+above found nothing," so the prompt says exactly that rather than
+implying the repo is safe. Decline and nothing is left on disk. Accept
+and it's moved next to where you ran the command, with a provenance
+marker so `codevet clean` can safely identify and remove it later. Pass
+`--keep` to skip the prompt for non-interactive/CI use.
+
+**This is not a malware scanner** — it checks for known secrets,
+dependency CVEs, and a small set of hygiene patterns, nothing more. A
+malicious repository engineered to avoid those specific checks would
+still pass.
 
 ## Running automatically on every PR
 
@@ -94,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: codevet/codevet@v1
+      - uses: i-akb25/codevet@v1
 ```
 
 Posts results as a PR comment. Fails the check on critical/high findings
@@ -112,6 +140,7 @@ Not a malware/antivirus scanner. Not a replacement for a professional
 security audit on anything handling real user data or payments at scale.
 A clean scan means the checks CodeVet currently runs found nothing — not a
 certification.
+
 
 ## Why this exists
 

@@ -1,0 +1,41 @@
+name: publish
+
+# Publishes to npm with provenance attestation — this is what lets npm show
+# "Provenance: verified" on the package page, cryptographically linking the
+# published tarball back to the exact GitHub Actions run and commit that
+# built it. Local `npm publish` from a developer machine cannot produce
+# this; it requires the OIDC token GitHub Actions issues to the workflow
+# itself. Triggered by pushing a version tag, so the tag IS the audit
+# trail — no separate "did the tag match what got published" question.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+      - run: npm audit
+      - name: Verify package.json version matches the pushed tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag v$TAG_VERSION does not match package.json version $PKG_VERSION — refusing to publish a mismatch."
+            exit 1
+          fi
+      - run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

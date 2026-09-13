@@ -1,6 +1,6 @@
 {
-  "name": "@i.akb-viora/codevet",
-  "version": "1.0.0",
+  "name": "codevet-cli",
+  "version": "1.2.0",
   "description": "Vet your code before it ships \u2014 a free, open-source security co-pilot that checks for leaked secrets, vulnerable dependencies, missing security middleware, and personal data flow, with real working fixes shown inline.",
   "scripts": {
     "build": "tsc",
@@ -40,7 +40,19 @@
   "files": [
     "dist",
     ".gitleaks.toml",
-    "scripts"
+    "scripts",
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".claude",
+    ".cursor",
+    ".opencode",
+    "docs",
+    "PRIVACY.md",
+    "TERMS.md",
+    "SECURITY.md",
+    "INFO.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md"
   ],
   "repository": {
     "type": "git",
@@ -52,5 +64,6 @@
   },
   "engines": {
     "node": "^18.19.0 || >=20.5.0"
-  }
+  },
+  "main": "dist/index.js"
 }

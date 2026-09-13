@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import chalk from "chalk";
-import { resolve, join } from "node:path";
+import { resolve, join, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { detectStack } from "./detectors/detectStack.js";
 import { runGitleaksScan, GitleaksBinaryMissingError } from "./scanners/gitleaksScanner.js";
@@ -17,10 +17,21 @@ import { runFix, removeDependency } from "./scanners/npmFixActions.js";
 
 const program = new Command();
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// Read the real version from package.json rather than hardcoding it —
+// confirmed as a real bug: a hardcoded "0.0.1" had silently drifted out
+// of sync with the actual published version.
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, "..", "package.json"), "utf-8"),
+) as { version: string };
+
 program
   .name("codevet")
   .description("Vet your code before it ships — free, open-source security scanning")
-  .version("0.0.1");
+  .version(packageJson.version);
 
 program
   .command("scan")
@@ -37,7 +48,8 @@ program
   .option("--no-data-flow", "skip the personal-data-flow check for this run only")
   .option("--json <path>", "also write a machine-readable JSON report to this path (for CI/tooling)")
   .option("--fail-on-high-risk", "exit with a non-zero code if any secret or high/critical dependency finding is present")
-  .action(async (pathArgs: string[], options: { secrets: boolean; dependencies: boolean; hygiene: boolean; dataFlow: boolean; json?: string; failOnHighRisk?: boolean }) => {
+  .option("--keep", "for URL/repo targets: keep the clone non-interactively without prompting (for CI/scripted use)")
+  .action(async (pathArgs: string[], options: { secrets: boolean; dependencies: boolean; hygiene: boolean; dataFlow: boolean; json?: string; failOnHighRisk?: boolean; keep?: boolean }) => {
     const target = await resolveTarget(pathArgs, process.cwd());
 
     if (target.rejoinedFromSplitArgs) {
@@ -179,6 +191,7 @@ program
         secrets,
         dependencies,
         hygiene,
+        hygieneScanSkipped: !runHygiene,
         dataFlow,
         pythonDependencies,
         pythonDependenciesApplicable,
@@ -202,7 +215,7 @@ program
       }
 
       if (target.isUntrustedClone) {
-        await handleUntrustedCloneDecision(target, report);
+        await handleUntrustedCloneDecision(target, report, Boolean(options.keep));
       }
 
       if (options.failOnHighRisk && hasHighRiskFindings(report)) {
@@ -227,26 +240,35 @@ program
 async function handleUntrustedCloneDecision(
   target: Awaited<ReturnType<typeof resolveTarget>>,
   report: ScanReport,
+  keepNonInteractively: boolean,
 ): Promise<void> {
-  if (!hasFindings(report)) {
+  const clean = !hasFindings(report);
+  const serious = hasHighRiskFindings(report);
+
+  if (keepNonInteractively) {
     const destination = await persistTarget(target, process.cwd());
-    console.log(chalk.green(`\n✔ No issues found — kept at ${destination}`));
+    console.log(chalk.dim(`\nKept at ${destination} (--keep passed, skipped confirmation).`));
     return;
   }
 
-  const serious = hasHighRiskFindings(report);
-  const proceed = await promptConfirm(
-    chalk.yellow(
-      `\n${serious ? "⚠ Serious issues" : "Some issues"} were found above. Do you still want to keep this repository?`,
-    ),
-  );
+  // Always prompt, regardless of result — a real, corrected fix. Silently
+  // auto-keeping on a "clean" scan implied a guarantee CodeVet cannot
+  // make: it only checks for known secrets, dependency CVEs, and a small
+  // set of hygiene patterns, never malware or novel logic. A clean
+  // result here means "nothing the completed checks look for was found,"
+  // not "this is safe" — the prompt wording says exactly that now.
+  const message = clean
+    ? "No findings were reported by the checks above. This is not a safety guarantee — CodeVet only checks for known secrets, dependency vulnerabilities, and a small set of hygiene patterns, not malware or novel malicious logic. Do you want to keep this repository?"
+    : `${serious ? "Serious issues" : "Some issues"} were found above. Do you still want to keep this repository?`;
+
+  const proceed = await promptConfirm(chalk.yellow(`\n${message}`));
 
   if (proceed) {
     const destination = await persistTarget(target, process.cwd());
     console.log(
-      chalk.yellow(
-        `Kept at ${destination} despite the issues above — review them before running this code.`,
-      ),
+      clean
+        ? chalk.green(`Kept at ${destination}.`)
+        : chalk.yellow(`Kept at ${destination} despite the issues above — review them before running this code.`),
     );
   } else {
     await cleanupTarget(target);

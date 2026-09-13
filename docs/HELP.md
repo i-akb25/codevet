@@ -3,10 +3,20 @@
 ## Installing
 
 ```
-npm install -g @i.akb-viora/codevet          # global install, gives you the `codevet` command anywhere
+npm install -g codevet-cli          # global install, gives you the `codevet` command anywhere
 # or
-npm install --save-dev @i.akb-viora/codevet  # install into a specific project, run via `npx codevet`
+npm install --save-dev codevet-cli  # install into a specific project — after this, `npx codevet` resolves to it locally
 ```
+
+**One-off use, no install:** `npx codevet-cli@latest scan` — the `-cli`
+suffix matters here specifically. A different, unrelated package is
+published under the bare name `codevet`; `npx codevet` with nothing
+installed locally will fetch that one instead.
+
+**pnpm or Yarn workspace:** don't `npm install codevet-cli` inside one —
+npm's resolver can crash on pnpm's symlinked `node_modules`. Use
+`pnpm dlx codevet-cli scan` or `npx codevet-cli@latest scan` instead,
+neither of which touches the workspace's dependency tree.
 
 ## Scanning
 
@@ -27,17 +37,19 @@ codevet scan --no-secrets        # skip the secret-scanning check, this run only
 codevet scan --no-dependencies   # skip the dependency-vulnerability check, this run only
 ```
 
-## Scanning a repository before you trust it
+## Scanning a repository before deciding to keep it
 
 ```
 codevet scan https://github.com/someone/some-repo
 ```
 
-- If nothing is found, the repo is automatically kept in your current
-  directory.
-- If something is found, you'll see exactly what and be asked whether you
-  still want to keep it. Answering no discards it completely — nothing is
-  left behind.
+- Always asks before keeping anything, regardless of the result — a clean
+  scan means "the checks above found nothing," not "this is safe."
+  CodeVet only checks for known secrets, dependency CVEs, and a small set
+  of hygiene patterns, never malware or novel logic.
+- Answering no discards it completely — nothing is left behind.
+- Pass `--keep` to skip the prompt and keep it automatically, for
+  CI/scripted use: `codevet scan <url> --keep`.
 
 ## Turning scanners on/off for a project
 
@@ -144,12 +156,57 @@ dependency resolver crashes with an internal error when it encounters
 pnpm's symlink structure in `node_modules`. Run `pnpm audit` directly for
 these projects; secrets, hygiene, and data-flow checks are unaffected.
 
+## Reading the coverage and verdict lines
+
+Every scan ends with two things:
+
+```
+Coverage:
+  Secrets:       completed
+  Dependencies:  completed
+  Hygiene:       completed
+  Data flow:     skipped
+
+Verdict: INCOMPLETE
+```
+
+`Coverage` shows exactly which checks actually ran — `completed`,
+`skipped` (disabled by config, or unavailable like Bearer on Windows), or
+`failed` (attempted but genuinely errored, e.g. a network issue). The
+`Verdict` is one of:
+
+- **PASS** — every check completed, nothing found
+- **PASS WITH WARNINGS** — everything completed, only moderate/low findings
+- **BLOCKED** — a real critical/high finding was found (takes priority
+  over everything else, since a real problem matters more than a
+  coverage gap)
+- **INCOMPLETE** — one or more checks didn't fully run, so the picture
+  isn't complete, even if nothing was found in what did run
+
+A skipped or failed check never gets silently treated as equivalent to a
+clean result — that distinction is the entire point of this line.
+
 ## Machine-readable output (for CI/tooling)
 
 ```
 codevet scan --json report.json         # also writes a JSON report alongside the normal output
 codevet scan --fail-on-high-risk         # exits with a non-zero code if anything serious is found
 ```
+
+## Installing into a pnpm or Yarn workspace
+
+Don't run `npm install codevet-cli` (or `npm i codevet-cli`) inside a pnpm-
+or Yarn-managed monorepo — npm's own dependency resolver can crash trying
+to interpret pnpm's symlinked `node_modules` structure (a real, confirmed
+npm bug, not something CodeVet causes). Use `npx` instead, which doesn't
+touch the workspace's dependency tree at all:
+
+```
+npx codevet-cli scan .
+```
+
+If you want CodeVet available as an actual dev dependency in a pnpm
+workspace, use pnpm itself to install it: `pnpm add -D codevet-cli`.
 
 ## Something not working?
 
